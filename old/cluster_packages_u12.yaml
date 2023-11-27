@@ -1,0 +1,76 @@
+---
+- hosts: all
+  remote_user: oliver
+  # NOTE: Run this with ansible-playbook -become -i eyereturn-cluster cluster_packages_u12.yaml
+  # become: true
+  # become_method: sudo
+  # become_user: root
+  tasks:
+    - copy: src=files/resolv.conf dest=/etc/resolv.conf
+    - file: path=/home/oliver/.ssh state=directory owner=oliver group=oliver mode=0700
+    - copy: src=files/authorized_keys dest=/home/oliver/.ssh/authorized_keys owner=oliver group=oliver  mode=0600
+    - file: path=/etc/localtime state=absent
+    - file: path=/etc/localtime src=/usr/share/zoneinfo/America/Toronto state=link
+    - copy: src=files/krb5-eyereturn-elephant.conf dest=/etc/krb5.conf
+    - copy: src=files/jce-7/local_policy.jar dest=/usr/lib/jvm/java-7-oracle-cloudera/jre/lib/security/local_policy.jar
+    - copy: src=files/jce-7/US_export_policy.jar dest=/usr/lib/jvm/java-7-oracle-cloudera/jre/lib/security/US_export_policy.jar
+    
+    - name: Ensure that common packages are installed
+      apt: name={{item}} state=present
+      with_items:
+        - ntp
+        - krb5-user
+        
+    - name: Remove openjdk pre 8
+      apt: name={{item}} state=absent
+      with_items:
+        - openjdk-6-jdk
+        - openjdk-7-jdk
+    
+    - service: name=ntp state=running enabled=yes
+            
+    - name: Set swappiness to 0
+      sysctl: name=vm.swappiness value=0 state=present ignoreerrors=yes
+  
+    - name: Ensure that unnecessary services are disabled
+      service: name={{item}} state=stopped enabled=no
+      ignore_errors: yes
+      with_items:
+        - iptables
+        - ip6tables
+
+    # # hugepage defrag
+    # - name: Ensure that transparent hugepage compaction defrag is turned off on reboot
+    #   lineinfile: dest=/etc/rc.d/rc.local regexp='^.*transparent_hugepage.defrag$' line='echo never > /sys/kernel/mm/transparent_hugepage/defrag'
+    #
+    # - name: Ensure that transparent hugepage compaction defrag is off
+    #   shell: echo 'never' > /sys/kernel/mm/transparent_hugepage/defrag
+    #
+    # # hugpage enabled
+    # - name: Ensure that transparent hugepage compaction is turned off on reboot
+    #   lineinfile: dest=/etc/rc.d/rc.local regexp='^.*transparent_hugepage.enabled$' line='echo never > /sys/kernel/mm/transparent_hugepage/enabled'
+    #
+    # - name: Ensure that transparent hugepage compaction is off
+    #   shell: echo 'never' > /sys/kernel/mm/transparent_hugepage/enabled
+
+    - name: Ensure that IPv6 is disabled
+      copy: src=files/disable-ipv6.conf dest=/etc/modprobe.d owner=root group=root mode=0644
+
+    - name: Ensure that NSS is set up correctly
+      lineinfile: 'dest=/etc/nsswitch.conf regexp="^hosts:.*$" line="hosts: files dns"'
+
+    - name: Ensure that /etc/host.conf is set up correctly
+      lineinfile: 'dest=/etc/host.conf regexp="^order .*$" line="order hosts, bind"'
+  
+    - name: Set swappiness to 0
+      action: sysctl name=vm.swappiness value=0 state=present ignoreerrors=yes
+    
+    - name: Ensure that security limits are set
+      lineinfile: dest=/etc/security/limits.conf line="{{item.line}}"
+      with_items:
+        - { line: 'hdfs - nofile 32768' }
+        - { line: 'mapred - nofile 32768' }
+        - { line: 'hbase - nofile 32768' }
+        - { line: 'hdfs - nproc 32768' }
+        - { line: 'mapred - nproc 32768' }
+        - { line: 'hbase - nproc 32768' }

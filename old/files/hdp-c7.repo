@@ -1,0 +1,13 @@
+[HDP-3.1.0.0-78]
+name=HDP Version - HDP-3.1.0.0-78
+baseurl=http://manager.home/hdp/centos7/HDP-3.1.0.0-78
+enabled=1
+priority=1
+gpgcheck=0
+
+[HDP-UTILS-1.1.0.22]
+name=HDP Utils Version - HDP-UTILS-1.1.0.22
+baseurl=http://manager.home/hdp/centos7/HDP-UTILS-1.1.0.22
+enabled=1
+priority=1
+gpgcheck=0

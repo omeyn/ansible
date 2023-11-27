@@ -1,0 +1,5 @@
+---
+- hosts: all
+  remote_user: root
+  tasks:
+    - copy: src=files/ambari.repo dest=/etc/yum.repos.d/ambari.repo

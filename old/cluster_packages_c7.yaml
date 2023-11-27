@@ -1,0 +1,99 @@
+-
+  hosts: all
+  remote_user: root
+  tasks:
+    # - name: Yum update everything
+    #   action: yum name=* state=latest
+    - name: Ensure that common packages are installed
+      action: yum name={{item}} state=present
+      with_items:
+        - libselinux-python
+        
+    - name: copy files into place
+      action: copy src=files/CentOS-Base-7.repo dest=/etc/yum.repos.d/CentOS-Base.repo
+    - name: copy files into place
+      action: copy src=files/epel-7.repo dest=/etc/yum.repos.d/epel.repo
+    # - name: copy files into place
+      action: copy src=files/hdp-c7.repo dest=/etc/yum.repos.d/hdp.repo
+    - name: copy files into place
+      action: copy src=files/resolv.conf dest=/etc/resolv.conf    
+    # - name: make dir
+    - file:
+        path: /root/.ssh
+        state: directory
+        mode: 0700
+    - name: copy files into place
+      action: copy src=files/authorized_keys dest=/root/.ssh/authorized_keys mode=0600
+    - name: copy kr5b.conf
+      action: copy src=files/krb5-home.conf dest=/etc/krb5.conf
+    - name: copy files into place
+      action: file path=/etc/localtime state=absent
+    - name: copy files into place
+      action: file path=/etc/localtime src=/usr/share/zoneinfo/America/Toronto state=link
+
+    
+    - name: Ensure that common packages are installed
+      action: yum name={{item}} state=present
+      with_items:
+        - java-1.8.0-openjdk
+        - java-1.8.0-openjdk-devel
+        - snappy
+        - snappy-devel
+        - ntp
+        - yum-utils
+        - krb5-workstation
+        # - ganglia-gmond
+
+    - name: Ensure unwanted packages are not installed
+      action: yum name={{item}} state=absent
+      with_items:
+        - tuned
+        
+    # - name: copy files into place
+    #   action: copy src=files/gmond.conf dest=/etc/ganglia/gmond.conf
+
+    - copy: src=files/jce-8/local_policy.jar dest=/usr/lib/jvm/java-1.8.0/jre/lib/security/
+    - copy: src=files/jce-8/US_export_policy.jar dest=/usr/lib/jvm/java-1.8.0/jre/lib/security/
+    
+    - service: name=ntpd state=running enabled=yes
+    
+    - name: Set swappiness to 0
+      action: sysctl name=vm.swappiness value=0 state=present ignoreerrors=yes
+    # 
+    # # See HBASE-6139 for details, this is 4 times the default value (tested on 64GB systems on CentOS 6.5)
+    # - name: Ensure that min_free_kbytes is set
+    #   sysctl: name=vm.min_free_kbytes value=360448 state=present ignoreerrors=yes
+ 
+    # TODO: turn off firewalld
+    
+    - name: Ensure that transparent hugepage compaction is turned off on reboot
+      action: lineinfile dest=/etc/rc.d/rc.local regexp='^.*transparent_hugepage.*$' line='echo never > /sys/kernel/mm/redhat_transparent_hugepage/defrag'
+
+    - name: Check if transparent hugepage compaction is currently on
+      action: shell grep '\[always\]' /sys/kernel/mm/redhat_transparent_hugepage/defrag | wc -l
+      always_run: yes
+      register: transparent_hugepage_status
+      changed_when: transparent_hugepage_status.stdout == "1"
+
+    - name: Ensure that transparent hugepage compaction is off
+      action: shell echo 'never' > /sys/kernel/mm/redhat_transparent_hugepage/defrag
+      when: transparent_hugepage_status.stdout == "1"
+
+    - name: Ensure that IPv6 is disabled
+      action: copy src=files/disable-ipv6.conf dest=/etc/modprobe.d owner=root group=root mode=0644
+
+    # - name: Ensure that NSS is set up correctly
+    #   action: lineinfile 'dest=/etc/nsswitch.conf regexp="^hosts:.*$" line="hosts: files dns"'
+
+    # - name: Ensure that /etc/host.conf is set up correctly
+    #   action: lineinfile 'dest=/etc/host.conf regexp="^order .*$" line="order hosts, bind"'
+  
+    - name: Ensure that security limits are set
+      action: lineinfile dest=/etc/security/limits.conf line="{{item.line}}"
+      with_items:
+        - { line: 'hdfs - nofile 32768' }
+        - { line: 'mapred - nofile 32768' }
+        - { line: 'hbase - nofile 32768' }
+        - { line: 'hdfs - nproc 32768' }
+        - { line: 'mapred - nproc 32768' }
+        - { line: 'hbase - nproc 32768' }

@@ -1,0 +1,12 @@
+---
+- hosts: all
+  remote_user: root
+  tasks:
+    - name: Ensure kerb client libs are installed
+      yum: name={{item}} state=present
+      with_items:
+        - krb5-workstation
+        - krb5-libs
+
+    - copy: src=files/krb5-home.conf dest=/etc/krb5.conf
+    

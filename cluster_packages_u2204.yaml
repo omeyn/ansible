@@ -1,0 +1,21 @@
+---
+- hosts: all
+  remote_user: oliver
+  # NOTE: Run this with ansible-playbook -become -i home_cluster.ini cluster_packages_u2204.yaml
+  # become: true
+  # become_method: sudo
+  # become_user: root
+  tasks:
+    - copy: src=files/resolv.conf dest=/etc/resolv.conf
+    - file: path=/etc/localtime state=absent
+    - file: path=/etc/localtime src=/usr/share/zoneinfo/America/Toronto state=link
+    
+    - name: Ensure that common packages are installed
+      apt: name={{item}} state=present
+      with_items:
+        - ntp
+    
+    - service: name=ntp state=started enabled=yes
+
+    - name: Ensure that IPv6 is disabled
+      copy: src=files/disable-ipv6.conf dest=/etc/modprobe.d owner=root group=root mode=0644

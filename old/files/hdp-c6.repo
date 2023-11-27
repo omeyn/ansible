@@ -1,0 +1,20 @@
+[HDP-2.3.0.0]
+name=HDP Version - HDP-2.3.0.0
+baseurl=http://manager.home/hdp/centos6/HDP-2.3.0.0
+enabled=1
+priority=1
+gpgcheck=0
+
+[HDP-UTILS-1.1.0.20]
+name=HDP Utils Version - HDP-UTILS-1.1.0.20
+baseurl=http://manager.home/hdp/centos6/HDP-UTILS-1.1.0.20
+enabled=1
+priority=1
+gpgcheck=0
+
+[Updates-ambari-2.1.0]
+name=ambari-2.1.0 - Updates
+baseurl=http://manager.home/ambari/centos6/Updates-ambari-2.1.0
+enabled=1
+priority=1
+gpgcheck=0

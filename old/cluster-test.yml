@@ -1,0 +1,11 @@
+- name: Fix stuff
+  vars:
+    alpha: [ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm' ]
+    numbers:  [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 ]
+  hosts: c4n1.gbif.org
+  gather_facts: False
+  tasks:
+    - debug: msg="{{ item.0 }} and {{ item.1 }}"
+      with_together:
+        - alpha
+        - numbers

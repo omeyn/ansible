@@ -1,0 +1,24 @@
+---
+- hosts: all
+  remote_user: root
+  tasks:
+    - name: copy files into place
+      action: copy src=files/resolv.conf dest=/etc/resolv.conf    
+    - file:
+        path: /root/.ssh
+        state: directory
+        mode: 0700
+    - name: copy files into place
+      action: copy src=files/authorized_keys dest=/root/.ssh/authorized_keys mode=0600
+    - name: copy files into place
+      action: file path=/etc/localtime state=absent
+    - name: copy files into place
+      action: file path=/etc/localtime src=/usr/share/zoneinfo/America/Toronto state=link
+    
+    - name: Ensure that common packages are installed
+      action: apt name={{item}} state=present
+      with_items:
+        - openjdk-8-jdk
+        - ntp
+    
+    - service: name=ntp state=running enabled=yes

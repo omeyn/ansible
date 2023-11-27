@@ -1,0 +1,16 @@
+---
+- name: Fix stuff
+  hosts: all
+  gather_facts: False
+  vars:
+    alpha: [ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm' ]
+  tasks:
+    - name: Generate UUID
+      shell: uuidgen
+      register: uuid
+      with_sequence: start=1 end=13
+    - name: Replace Storage ID
+      lineinfile: dest=/mnt/disk_{{item.0}}/dfs/dn/current/VERSION regexp=^storageID line=storageID=DS-{{item.1.stdout}} backup=yes owner=hdfs group=hdfs
+      with_together:
+        - alpha
+        - uuid.results

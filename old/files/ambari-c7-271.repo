@@ -1,0 +1,6 @@
+[ambari-2.7.1.0]
+name=ambari Version - ambari-2.7.1.0
+baseurl=http://manager.home/ambari/centos7/ambari-2.7.1.0
+gpgcheck=0
+enabled=1
+priority=1

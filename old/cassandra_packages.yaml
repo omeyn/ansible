@@ -1,0 +1,14 @@
+-
+  hosts: all
+  remote_user: root
+  tasks:
+    - name: copy files into place
+      action: copy src=files/cassandra.repo dest=/etc/yum.repos.d/cassandra.repo
+    - name: make data directories
+      action: file path=/dfs/dn/cassandra/data state=directory mode=0755 owner=cassandra group=cassandra
+    - name: make data directories
+      action: file path=/dfs/dn2/cassandra/data state=directory mode=0755 owner=cassandra group=cassandra
+    - name: install cassandra
+      action: yum name=datastax-ddc state=latest
+    - name: copy cassandra config
+      action: copy src=files/cassandra.yaml dest=/etc/cassandra/conf/cassandra.yaml owner=cassandra group=cassandra

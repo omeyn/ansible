@@ -1,0 +1,9 @@
+-
+  hosts: all
+  remote_user: root
+  tasks:
+    # in two passes because some machines don't have hadoop group (and shouldn't eg nifi)
+    - user: name=oliver groups=wheel append=yes
+    - user: name=gandalf groups=wheel append=yes
+    - user: name=oliver groups=hadoop,users append=yes
+    - user: name=gandalf groups=hadoop,users append=yes

@@ -1,0 +1,6 @@
+[Updates-ambari-2.1.2.1]
+name=ambari-2.1.2.1 - Updates
+baseurl=http://manager.home/ambari/centos6/Updates-ambari-2.1.2.1
+enabled=1
+priority=1
+gpgcheck=0

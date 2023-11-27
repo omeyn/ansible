@@ -1,0 +1,100 @@
+---
+- hosts: all
+  remote_user: root
+  tasks:
+    - yum: name=libselinux-python state=present
+    - copy: src=files/CentOS-Base-6.repo dest=/etc/yum.repos.d/CentOS-Base.repo
+    - copy: src=files/epel-6.repo dest=/etc/yum.repos.d/epel.repo
+    - copy: src=files/ambari.repo dest=/etc/yum.repos.d/ambari.repo
+    - copy: src=files/resolv.conf dest=/etc/resolv.conf
+    - file: path=/root/.ssh state=directory mode=0700
+    - copy: src=files/authorized_keys dest=/root/.ssh/authorized_keys mode=0600
+    - file: path=/etc/localtime state=absent
+    - file: path=/etc/localtime src=/usr/share/zoneinfo/America/Toronto state=link
+
+    # - service: name=gmond state=running enabled=no
+    
+    - name: Ensure that common packages are installed
+      yum: name={{item}} state=present
+      with_items:
+        - java-1.8.0-openjdk
+        - java-1.8.0-openjdk-devel
+        - snappy
+        - snappy-devel
+        - ntp
+        # - ganglia-gmond
+
+    # - name: Ensure that bad packages are uninstalled
+    #   yum: name={{item}} state=absent
+    #   with_items:
+    #     - ganglia-gmond
+      #   - java-1.8.0-openjdk
+      #   - java-1.8.0-openjdk-devel
+
+
+    # - copy: src=files/gmond.conf dest=/etc/ganglia/gmond.conf
+    - copy: src=files/jce/local_policy.jar dest=/usr/lib/jvm/java/lib/security
+    - copy: src=files/jce/US_export_policy.jar dest=/usr/lib/jvm/java/lib/security
+    
+    - service: name=ntpd state=running enabled=yes
+
+            
+    - name: Set swappiness to 0
+      sysctl: name=vm.swappiness value=0 state=present ignoreerrors=yes
+    # 
+    # # See HBASE-6139 for details, this is 4 times the default value (tested on 64GB systems on CentOS 6.5)
+    # - name: Ensure that min_free_kbytes is set
+    #   sysctl: name=vm.min_free_kbytes value=360448 state=present ignoreerrors=yes
+  
+    - name: Ensure that unnecessary services are disabled
+      service: name={{item}} state=stopped enabled=no
+      ignore_errors: yes
+      with_items:
+        - iptables
+        - ip6tables
+
+    # hugepage defrag
+    - name: Ensure that transparent hugepage compaction defrag is turned off on reboot
+      lineinfile: dest=/etc/rc.d/rc.local regexp='^.*transparent_hugepage.defrag$' line='echo never > /sys/kernel/mm/redhat_transparent_hugepage/defrag'
+
+    - name: Ensure that transparent hugepage compaction defrag is off
+      shell: echo 'never' > /sys/kernel/mm/redhat_transparent_hugepage/defrag
+      
+    # hugpage enabled
+    - name: Ensure that transparent hugepage compaction is turned off on reboot
+      lineinfile: dest=/etc/rc.d/rc.local regexp='^.*transparent_hugepage.enabled$' line='echo never > /sys/kernel/mm/redhat_transparent_hugepage/enabled'
+      
+    - name: Ensure that transparent hugepage compaction is off
+      shell: echo 'never' > /sys/kernel/mm/redhat_transparent_hugepage/enabled
+
+    - name: Ensure that SELinux is disabled
+      selinux: state=disabled
+      notify:
+        - reboot
+
+    - name: Ensure that IPv6 is disabled
+      copy: src=files/disable-ipv6.conf dest=/etc/modprobe.d owner=root group=root mode=0644
+
+    - name: Ensure that NSS is set up correctly
+      lineinfile: 'dest=/etc/nsswitch.conf regexp="^hosts:.*$" line="hosts: files dns"'
+
+    - name: Ensure that /etc/host.conf is set up correctly
+      lineinfile: 'dest=/etc/host.conf regexp="^order .*$" line="order hosts, bind"'
+  
+    - name: Ensure that security limits are set
+      lineinfile: dest=/etc/security/limits.conf line="{{item.line}}"
+      with_items:
+        - { line: 'hdfs - nofile 32768' }
+        - { line: 'mapred - nofile 32768' }
+        - { line: 'hbase - nofile 32768' }
+        - { line: 'hdfs - nproc 32768' }
+        - { line: 'mapred - nproc 32768' }
+        - { line: 'hbase - nproc 32768' }
+      
+  handlers:
+    - name: reboot
+      command: '/sbin/reboot'
+      sudo: yes
+      
+
+        

@@ -1,0 +1,122 @@
+# Generated the CA key and certificate using these commands:
+# openssl genrsa -aes256 -out rootCA.key 8192
+# openssl req -sha256 -x509 -new -nodes -key rootCA.key -days 1024 -out rootCA.pem
+
+- hosts: edge
+  tasks:
+  - name: Create the certificate for the CDH services
+    copy: src=../../conf/rootCA.pem dest=/tmp/rootCA.pem
+  - copy: src=../../conf/rootCA.key dest=/tmp/rootCA.key
+  - shell: rm -f {{ item }}.jks; {{java_home}}/bin/keytool -genkeypair -keystore {{ item }}.jks -keyalg RSA -alias {{ item }} -dname "CN={{ item }}" -storepass {{ store_pass }} -keypass {{ key_pass }} -validity 500
+    with_items: groups.all
+  - command: /{{java_home}}/bin/keytool -certreq -keystore {{ item }}.jks -alias {{ item }} -storepass {{ store_pass }} -keypass {{ key_pass }} -file {{ item }}.csr
+    with_items: groups.all
+  - shell: bash -c "openssl x509 -req -in {{ item }}.csr -CA /tmp/rootCA.pem -CAkey /tmp/rootCA.key -CAcreateserial -out {{ item }}.crt -days 500 -passin file:<( echo -n "usualpass1234" )"
+    with_items: groups.all
+  - command: /{{java_home}}/bin/keytool -importcert -keystore {{ item }}.jks -alias CA -storepass {{ store_pass }} -keypass {{ key_pass }} -file /tmp/rootCA.pem -noprompt
+    with_items: groups.all
+  - command: /{{java_home}}/bin/keytool -importcert -keystore {{ item }}.jks -alias {{ item }} -storepass {{ store_pass }} -keypass {{ key_pass }} -file {{ item }}.crt -noprompt
+    with_items: groups.all
+  - command: rm -rf {{ java_home }}/jre/lib/security/jssecacert
+  - command: cp {{ java_home }}/jre/lib/security/cacerts {{ java_home }}/jre/lib/security/jssecacerts
+  - command: /{{java_home}}/bin/keytool -importcert -keystore {{ java_home }}/jre/lib/security/jssecacerts -alias CA -storepass changeit -file /tmp/rootCA.pem -noprompt
+  - shell: rm -f *.crt; rm -f *.csr
+
+- hosts: all
+  tasks:
+  - name: create the certificates directories
+    command: rm -rf /opt/cloudera/security
+  - command: mkdir -p /opt/cloudera/security /opt/cloudera/security/x509 /opt/cloudera/security/jks /opt/cloudera/security/CAcerts
+
+- hosts: edge
+  tasks:
+  - name: Create the certificate for the Cloudera Manager (the password for store and key)
+    shell: rm -f {{ groups.edge[0] }}-cm.jks; {{java_home}}/bin/keytool -genkeypair -keystore {{ groups.edge[0] }}-cm.jks -keyalg RSA -alias {{ groups.edge[0] }} -dname "CN={{ groups.edge[0] }}" -storepass {{ store_pass }} -keypass {{ store_pass }} -validity 500
+  - command: /{{java_home}}/bin/keytool -certreq -keystore {{ groups.edge[0] }}-cm.jks -alias {{ groups.edge[0] }} -storepass {{ store_pass }} -keypass {{ store_pass }} -file {{ groups.edge[0] }}-cm.csr
+  - shell: bash -c "openssl x509 -req -in {{ groups.edge[0] }}-cm.csr -CA /tmp/rootCA.pem -CAkey /tmp/rootCA.key -CAcreateserial -out {{ groups.edge[0] }}-cm.crt -days 500 -passin file:<( echo -n "usualpass1234" )"
+  - command: /{{java_home}}/bin/keytool -importcert -keystore {{ groups.edge[0] }}-cm.jks -alias CA -storepass {{ store_pass }} -keypass {{ key_pass }} -file /tmp/rootCA.pem -noprompt
+  - command: /{{java_home}}/bin/keytool -importcert -keystore {{ groups.edge[0] }}-cm.jks -alias {{ groups.edge[0] }} -storepass {{ store_pass }} -keypass {{ store_pass }} -file {{ groups.edge[0] }}-cm.crt -noprompt
+  - shell: cp {{ groups.edge[0] }}-cm.jks /opt/cloudera/security/jks/; chown cloudera-scm:cloudera-scm /opt/cloudera/security/jks/{{ groups.edge[0] }}-cm.jks; chmod 400 /opt/cloudera/security/jks/{{ groups.edge[0] }}-cm.jks
+  - shell: rm -f *.crt; rm -f *.csr
+
+- hosts: edge
+  tasks:
+  - name: Create the certificate for the Cloudera Navigator
+    shell: rm -f {{ groups.edge[0] }}-nav.jks; {{java_home}}/bin/keytool -genkeypair -keystore {{ groups.edge[0] }}-nav.jks -keyalg RSA -alias {{ groups.edge[0] }} -dname "CN={{ groups.edge[0] }}" -storepass {{ store_pass }} -keypass {{ key_pass }} -validity 500
+  - command: /{{java_home}}/bin/keytool -certreq -keystore {{ groups.edge[0] }}-nav.jks -alias {{ groups.edge[0] }} -storepass {{ store_pass }} -keypass {{ key_pass }} -file {{ groups.edge[0] }}-nav.csr
+  - shell: bash -c "openssl x509 -req -in {{ groups.edge[0] }}-nav.csr -CA /tmp/rootCA.pem -CAkey /tmp/rootCA.key -CAcreateserial -out {{ groups.edge[0] }}-nav.crt -days 500 -passin file:<( echo -n "usualpass1234" )"
+  - command: /{{java_home}}/bin/keytool -importcert -keystore {{ groups.edge[0] }}-nav.jks -alias CA -storepass {{ store_pass }} -keypass {{ key_pass }} -file /tmp/rootCA.pem -noprompt
+  - command: /{{java_home}}/bin/keytool -importcert -keystore {{ groups.edge[0] }}-nav.jks -alias {{ groups.edge[0] }} -storepass {{ store_pass }} -keypass {{ key_pass }} -file {{ groups.edge[0] }}-nav.crt -noprompt
+  - shell: cp {{ groups.edge[0] }}-nav.jks /opt/cloudera/security/jks/; chown cloudera-scm:cloudera-scm /opt/cloudera/security/jks/{{ groups.edge[0] }}-nav.jks; chmod 400 /opt/cloudera/security/jks/{{ groups.edge[0] }}-nav.jks
+  - shell: rm -f *.crt; rm -f *.csr
+
+- hosts: edge
+  tasks:
+  - name: fetch the service certificates
+    fetch: src={{ item }}.jks dest=/tmp/{{ item }}.jks flat=yes
+    with_items: groups.all
+  - fetch: src={{ item }}-cm.jks dest=/tmp/{{ item }}-cm.jks flat=yes
+    with_items: groups.edge
+
+- hosts: all
+  tasks:
+  - name: copy the service certificates to all the nodes
+    copy: src=/tmp/{{ ansible_hostname }}.{{ dns_domain }}.jks dest=/opt/cloudera/security/jks/hadoop.jks group=hadoop mode=440
+  - copy: src=/tmp/{{ ansible_hostname }}.{{ dns_domain }}.jks dest=/opt/cloudera/security/jks/hbase.jks group=hbase mode=440
+  - copy: src=/tmp/{{ ansible_hostname }}.{{ dns_domain }}.jks dest=/opt/cloudera/security/jks/oozie.jks group=oozie mode=440
+
+- hosts: edge
+  tasks:
+  - name: fetch the trustore from the edge
+    fetch: src={{ java_home }}/jre/lib/security/jssecacerts dest=/tmp/jssecacerts flat=yes
+
+- hosts: all:!edge
+  tasks:
+  - name: copy the trustore to the rest of the nodes
+    copy: src=/tmp/jssecacerts dest={{ java_home }}/jre/lib/security/jssecacerts
+
+- hosts: edge
+  tasks:
+  - name: create the Cloudera Manager certificate in pem format
+    command: /{{java_home}}/bin/keytool -importkeystore -srckeystore /opt/cloudera/security/jks/{{ groups.edge[0] }}-cm.jks -srcstorepass {{ store_pass }} -srckeypass {{ store_pass }}
+             -destkeystore /tmp/{{ groups.edge[0] }}-cm.p12 -deststoretype PKCS12 -srcalias {{ groups.edge[0] }} -deststorepass {{ store_pass }} -destkeypass {{ key_pass }}
+  - command: openssl pkcs12 -in /tmp/{{ groups.edge[0] }}-cm.p12 -passin pass:{{ store_pass }} -nokeys -out /opt/cloudera/security/x509/{{ groups.edge[0] }}-cm.pem
+  - command: chown cloudera-scm:cloudera-scm /opt/cloudera/security/x509/{{ groups.edge[0] }}-cm.pem
+  - command: chmod 400 /opt/cloudera/security/x509/{{ groups.edge[0] }}-cm.pem
+  - command: rm -f /tmp/{{ groups.edge[0] }}-cm.p12
+
+- hosts: edge
+  tasks:
+  - name: fetch the Cloudera Manager certificate in pem format
+    fetch: src=/opt/cloudera/security/x509/{{ groups.edge[0] }}-cm.pem dest=/tmp/{{ groups.edge[0] }}-cm.pem flat=yes
+
+- hosts: all:!edge
+  tasks:
+  - name: copy the Cloudera Manager certificate in pem format to the rest of the nodes
+    copy: src=/tmp/{{ groups.edge[0] }}-cm.pem dest=/opt/cloudera/security/x509/{{ groups.edge[0] }}-cm.pem owner=cloudera-scm group=cloudera-scm mode=400
+
+- hosts: edge
+  tasks:
+  - name: generate the HUE trustore
+    command: /{{java_home}}/bin/keytool -exportcert -keystore /opt/cloudera/security/jks/hadoop.jks -alias CA -storepass {{ store_pass }} -file /tmp/CA.cert
+  - shell: openssl x509 -inform der -in /tmp/CA.cert >> /opt/cloudera/security/x509/huetrustore.pem
+  - command: rm -f /tmp/CA.cert
+
+- hosts: edge
+  tasks:
+  - name: generate the HUE server certificate and key
+    shell: rm -f /tmp/{{ groups.edge[0] }}-hue.p12; {{java_home}}/bin/keytool -importkeystore -srckeystore /opt/cloudera/security/jks/hadoop.jks -srcstorepass {{ store_pass }} -srckeypass {{ key_pass }} -destkeystore /tmp/{{ groups.edge[0] }}-hue.p12 -deststoretype PKCS12 -srcalias {{ groups.edge[0] }} -deststorepass {{ store_pass }} -destkeypass {{ store_pass }}
+  - shell: openssl pkcs12 -in /tmp/{{ groups.edge[0] }}-hue.p12 -passin pass:{{ store_pass }} -nokeys -out /opt/cloudera/security/x509/{{ groups.edge[0] }}-hue.pem; chown hue:hue /opt/cloudera/security/x509/{{ groups.edge[0] }}-hue.pem; chmod 400 /opt/cloudera/security/x509/{{ groups.edge[0] }}-hue.pem
+  - shell: openssl pkcs12 -in /tmp/{{ groups.edge[0] }}-hue.p12 -passin pass:{{ store_pass }} -nocerts -out /opt/cloudera/security/x509/{{ groups.edge[0] }}-hue.key -passout pass:{{ key_pass }}; chown hue:hue /opt/cloudera/security/x509/{{ groups.edge[0] }}-hue.key; chmod 400 /opt/cloudera/security/x509/{{ groups.edge[0] }}-hue.key
+  - shell: openssl rsa -in /opt/cloudera/security/x509/{{ groups.edge[0] }}-hue.key -passin pass:{{ store_pass }} -out /opt/cloudera/security/x509/{{ groups.edge[0] }}-hue.key; chown hue:hue /opt/cloudera/security/x509/{{ groups.edge[0] }}-hue.key; chmod 400 /opt/cloudera/security/x509/{{ groups.edge[0] }}-hue.key
+  - command: rm -f /tmp/{{ groups.edge[0] }}-hue.p12
+
+- hosts: edge
+  tasks:
+  - name: remove all the certificates from the edge root home
+    shell: rm -f {{ item }}.jks
+    with_items: groups.all
+  - shell: rm -f {{ item }}-cm.jks
+    with_items: groups.edge
+  - shell: rm -f {{ item }}-nav.jks
+    with_items: groups.edge

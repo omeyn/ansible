@@ -1,0 +1,22 @@
+---
+- hosts: all
+  remote_user: oliver
+  tasks:
+    - name: Clean apt repos
+      file:
+        state: absent
+        path: "/var/lib/apt/lists/"
+
+    - name: Switch to canadian mirror
+      replace:
+        dest: /etc/apt/sources.list
+        regexp: 'us.archive'
+        replace: 'ca.archive'
+        backup: yes
+
+    # sometimes barfs for some reason - ;can't get exclusive lock'
+    - name: Do full apt-get update
+      apt:
+        update_cache=yes
+        upgrade=yes
+        

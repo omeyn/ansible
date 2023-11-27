@@ -1,0 +1,39 @@
+-
+  hosts: all
+  remote_user: root
+  tasks:
+    - name: copy files into place
+      action: copy src=files/CentOS-Base-7.repo dest=/etc/yum.repos.d/CentOS-Base.repo
+    - name: copy files into place
+      action: copy src=files/epel-7.repo dest=/etc/yum.repos.d/epel.repo
+    - name: copy files into place
+      action: copy src=files/confluent.repo dest=/etc/yum.repos.d/confluent.repo
+    - name: copy files into place
+      action: copy src=files/resolv.conf dest=/etc/resolv.conf    
+    - name: copy files into place
+      action: file path=/etc/localtime state=absent
+    - name: copy files into place
+      action: file path=/etc/localtime src=/usr/share/zoneinfo/America/Toronto state=link
+    
+    - name: Ensure that common packages are installed
+      action: yum name={{item}} state=present
+      with_items:
+        - java-1.8.0-openjdk
+        - java-1.8.0-openjdk-devel
+        - snappy
+        - snappy-devel
+        - ntp
+        - confluent-platform-2.11
+
+    - name: Ensure unwanted packages are not installed
+      action: yum name={{item}} state=absent
+      with_items:
+        - tuned
+        
+    - copy: src=files/jce-8/local_policy.jar dest=/usr/lib/jvm/java-1.8.0/jre/lib/security/
+    - copy: src=files/jce-8/US_export_policy.jar dest=/usr/lib/jvm/java-1.8.0/jre/lib/security/
+    
+    - service: name=ntpd state=running enabled=yes
+    
+    - name: Set swappiness to 0
+      action: sysctl name=vm.swappiness value=0 state=present ignoreerrors=yes

@@ -1,0 +1,15 @@
+---
+- hosts: all
+  remote_user: root
+  tasks:
+    - name: Ensure that gmond is installed
+      yum: name=ganglia-gmond state=present
+
+    - name: Copy gmond config into place
+      copy: src=files/gmond-hdp-cluster.conf dest=/etc/ganglia/gmond.conf
+          
+    - name: Ensure gmond is started
+      service: name=gmond state=restarted enabled=yes
+      
+
+        
