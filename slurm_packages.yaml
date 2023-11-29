@@ -1,0 +1,25 @@
+---
+- hosts: all
+  remote_user: oliver
+  # NOTE: Run this with ansible-playbook -become -i home_cluster.ini slurm_packages.yaml
+  # become: true
+  # become_method: sudo
+  # become_user: root
+  tasks:
+    - name: Ensure that common packages are installed
+      apt: name={{item}} state=present
+      with_items:
+        - munge
+        - slurm-wlm
+
+    - name: Share common munge.key
+      copy: src=files/munge.key dest=/etc/munge/munge.key owner=munge group=munge mode=0600
+
+    - name: Bounce Munge and start on boot
+      service: name=munge state=restarted enabled=yes
+
+    - name: Add the slurm user
+      ansible.builtin.user:
+        name: slurm
+
+    
