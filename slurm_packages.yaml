@@ -1,4 +1,43 @@
 ---
+- hosts: head
+  remote_user: oliver
+  tasks:
+    - name: Ensure that head packages are installed
+      apt: name={{item}} state=present
+      with_items:
+        - slurmctld
+
+    - name: Create slurm directories if it not exist
+      ansible.builtin.file:
+        path: /var/spool/slurmctld
+        state: directory
+        mode: '0755'
+        owner: slurm
+
+    - name: Start slurm controller on head
+      service: name=slurmctld state=started enabled=yes
+
+- hosts: db
+  remote_user: oliver
+  tasks:
+    - name: Ensure that db packages are installed
+      apt: name={{item}} state=present
+      with_items:
+        - slurmdbd
+        - mariadb-server
+    - name: Start maria on boot
+      service: name=mariadb state=started enabled=yes
+
+    # todo start slurmdbd
+
+- hosts: compute
+  remote_user: oliver
+  tasks:
+    - name: Ensure that compute packages are installed
+      apt: name={{item}} state=present
+      with_items:
+        - slurmd
+
 - hosts: all
   remote_user: oliver
   # NOTE: Run this with ansible-playbook -become -i home_cluster.ini slurm_packages.yaml
@@ -10,7 +49,8 @@
       apt: name={{item}} state=present
       with_items:
         - munge
-        - slurm-wlm
+        - slurmd
+        - slurm-client
 
     - name: Share common munge.key
       copy: src=files/munge.key dest=/etc/munge/munge.key owner=munge group=munge mode=0600
@@ -22,4 +62,17 @@
       ansible.builtin.user:
         name: slurm
 
-    
+    - name: Create slurm directories if it not exist
+      ansible.builtin.file:
+        path: /var/spool/slurmd
+        state: directory
+        mode: '0755'
+        owner: slurm
+
+    - file: path=/etc/slurm.conf state=absent
+    - file: path=/etc/slurm/slurm.conf state=absent
+    - copy: src=files/slurm.conf dest=/etc/slurm/slurm.conf owner=slurm mode=0644
+    - copy: src=files/cgroup.conf dest=/etc/slurm/cgroup.conf owner=slurm mode=0644
+
+    - name: Bounce slurmd on all
+      service: name=slurmd state=restarted enabled=yes

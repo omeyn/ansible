@@ -9,6 +9,11 @@
     - copy: src=files/resolv.conf dest=/etc/resolv.conf
     - file: path=/etc/localtime state=absent
     - file: path=/etc/localtime src=/usr/share/zoneinfo/America/Toronto state=link
+    - file: path=/etc/netplan/00-installer-config.yaml state=absent
+    
+    - name: clean the 127.0.1.1 self reference that messes up slurm
+      shell: 
+        cmd: sed -i '/^127.0.1.1/d' /etc/hosts
     
     - name: Ensure that common packages are installed
       apt: name={{item}} state=present
