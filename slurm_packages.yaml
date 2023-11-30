@@ -14,8 +14,8 @@
         mode: '0755'
         owner: slurm
 
-    - name: Start slurm controller on head
-      service: name=slurmctld state=started enabled=yes
+    - name: Bounce slurm controller on head
+      service: name=slurmctld state=restarted enabled=yes
 
 - hosts: db
   remote_user: oliver
