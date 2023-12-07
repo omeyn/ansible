@@ -10,6 +10,7 @@
     - file: path=/etc/localtime state=absent
     - file: path=/etc/localtime src=/usr/share/zoneinfo/America/Toronto state=link
     - file: path=/etc/netplan/00-installer-config.yaml state=absent
+    - file: path=/mnt/shared_storage state=directory
     
     - name: clean the 127.0.1.1 self reference that messes up slurm
       shell: 
@@ -19,8 +20,16 @@
       apt: name={{item}} state=present
       with_items:
         - ntp
-    
+        - nfs-common
+
     - service: name=ntp state=started enabled=yes
 
     - name: Ensure that IPv6 is disabled
       copy: src=files/disable-ipv6.conf dest=/etc/modprobe.d owner=root group=root mode=0644
+
+- hosts: compute
+  remote_user: oliver
+  tasks:
+    - name: Add NFS mount to /etc/fstab
+      ansible.builtin.shell: grep -qxF 'nuc1.home:/mnt/storage_disk /mnt/shared_storage nfs defaults 0 0' /etc/fstab || echo 'nuc1.home:/mnt/storage_disk /mnt/shared_storage nfs defaults 0 0' >> /etc/fstab
+    

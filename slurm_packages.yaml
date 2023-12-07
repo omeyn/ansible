@@ -71,6 +71,7 @@
 
     - file: path=/etc/slurm.conf state=absent
     - file: path=/etc/slurm/slurm.conf state=absent
+    - file: path=/etc/slurm/cgroup.conf state=absent
     - copy: src=files/slurm.conf dest=/etc/slurm/slurm.conf owner=slurm mode=0644
     - copy: src=files/cgroup.conf dest=/etc/slurm/cgroup.conf owner=slurm mode=0644
 
